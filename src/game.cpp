@@ -1,5 +1,11 @@
 #include "game.h"
+#include "actor.h"
 #include "constants.h"
+#include "spriteComponent.h"
+#include "pacman.h"
+#include <SDL2/SDL_image.h>
+#include <iostream>
+#include <algorithm>
 
 game::game():mWindow(nullptr)
 ,mRenderer(nullptr) ,mIsRunning(true)
@@ -40,6 +46,9 @@ bool game::initialize()
 void game::loadData()
 {
     // load data here
+	pacman* player = new pacman(this);
+	player -> setPosition(Vector2(100.0f, 384.0f));
+	std::cout << "added pacman" << std::endl;
 }
 
 void game::unloadData()
@@ -52,9 +61,23 @@ void game::runLoop()
 	while (mIsRunning)
 	{
 		processInput();
-		generateOutput();
 		updateGame();
+		render();
 	}
+}
+
+void game::render()
+{
+	SDL_SetRenderDrawColor(mRenderer, 0, 0, 0, 255);
+	SDL_RenderClear(mRenderer);
+	
+	// Draw all sprite components
+	for (auto sprite : mSprites)
+	{
+		sprite->render(mRenderer);
+	}
+
+	SDL_RenderPresent(mRenderer);
 }
 
 void game::processInput()
@@ -74,17 +97,6 @@ void game::processInput()
     // Process player input here
 	
 }
-
-void game::generateOutput()
-{
-	SDL_SetRenderDrawColor(mRenderer, 0, 0, 0, 255);
-	SDL_RenderClear(mRenderer);
-
-    // Render game objects here
-
-    SDL_RenderPresent(mRenderer);
-}
-
 
 void game::updateGame()
 {
@@ -109,4 +121,91 @@ void game::shutdown()
     SDL_DestroyRenderer(mRenderer);
 	SDL_DestroyWindow(mWindow);
 	SDL_Quit();
+}
+
+void game::addActor(actor* actorToAdd)
+{
+	if (mAreActorsUpdating)
+		mPendingActors.emplace_back(actorToAdd);
+	else
+		mActors.emplace_back(actorToAdd);
+}
+
+void game::removeActor(actor* actorToRemove)
+{
+	// If it is in pending actors
+	auto iter = std::find(mPendingActors.begin(), mPendingActors.end(), actorToRemove);
+	if (iter != mPendingActors.end())
+	{
+		// Swap to end of vector and pop off (avoid erase copies)
+		std::iter_swap(iter, mPendingActors.end() - 1);
+		mPendingActors.pop_back();
+	}
+
+	// If it is in actors
+	iter = std::find(mActors.begin(), mActors.end(), actorToRemove);
+	if (iter != mActors.end() && actorToRemove->getState() == actor::state::EDead)
+	{
+		// Swap to end of vector and pop off (avoid erase copies)
+		std::iter_swap(iter, mActors.end() - 1);
+		mActors.pop_back();
+	}
+}
+
+void game::addSprite(spriteComponent* sprite)
+{
+	// Find the insertion point in the sorted vector
+	// (The first element with a higher draw order than me)
+	int myDrawOrder = sprite->getDrawOrder();
+	auto iter = mSprites.begin();
+	for ( ; iter != mSprites.end(); ++iter)
+	{
+		if (myDrawOrder < (*iter)->getDrawOrder())
+		{
+			break;
+		}
+	}
+
+	// Inserts element before position of iterator
+	mSprites.insert(iter, sprite);
+}
+
+void game::removeSprite(spriteComponent* sprite)
+{
+	// (We can't swap because it ruins ordering)
+	auto iter = std::find(mSprites.begin(), mSprites.end(), sprite);
+	mSprites.erase(iter);
+}
+
+SDL_Texture* game::getTexture(const std::string& fileName)
+{
+	SDL_Texture* tex = nullptr;
+	// Is the texture already in the map?
+	auto iter = mTextures.find(fileName);
+	if (iter != mTextures.end())
+	{
+		tex = iter->second;
+	}
+	else
+	{
+		// Load from file
+		SDL_Surface* surf = IMG_Load(fileName.c_str());
+		if (!surf)
+		{
+			SDL_Log("Failed to load texture file %s", fileName.c_str());
+			return nullptr;
+		}
+
+		// Create texture from surface
+		tex = SDL_CreateTextureFromSurface(mRenderer, surf);
+		SDL_FreeSurface(surf);
+		if (!tex)
+		{
+			SDL_Log("Failed to convert surface to texture for %s", fileName.c_str());
+			return nullptr;
+		}
+
+		mTextures.emplace(fileName.c_str(), tex);
+	}
+	return tex;
 }
