@@ -5,14 +5,19 @@
 #include <algorithm>
 
 actor::actor(game* gameInstance)
-: mGame(gameInstance), mScale(1.0f), mRotation(0.0f)
+: mState(state::EActive), mGame(gameInstance), mScale(1.0f), mRotation(0.0f)
 {
+    mPosition = Vector2(0,0);
     mGame -> addActor(this);
 }
 
 actor::~actor()
 {
     mGame -> removeActor(this);
+	while (!mComponents.empty())
+	{
+		delete mComponents.back();
+	}
 
 }
 

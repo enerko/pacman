@@ -44,4 +44,8 @@ private:
     bool mAreActorsUpdating;
 
 	std::unordered_map<std::string, SDL_Texture*> mTextures; // Map of textures loaded
+
+    class pacman* mPlayer;
+    
+    void updateActors(float deltaTime);
 };

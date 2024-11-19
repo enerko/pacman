@@ -4,7 +4,7 @@
 #include <iostream>
 
 spriteComponent::spriteComponent(actor* owner, int drawOrder)
-: component(owner), mTexture(nullptr), mDrawOrder(drawOrder)
+: component(owner), mTexture(nullptr), mDrawOrder(drawOrder), mTextureHeight(0), mTextureWidth(0)
 {
     mOwner -> getGame() -> addSprite(this);
     std::cout << "sprite added" << std::endl;

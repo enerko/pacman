@@ -8,7 +8,7 @@
 #include <algorithm>
 
 game::game():mWindow(nullptr)
-,mRenderer(nullptr) ,mIsRunning(true)
+,mRenderer(nullptr) ,mIsRunning(true), mAreActorsUpdating(false)
 {
 
 }
@@ -46,9 +46,8 @@ bool game::initialize()
 void game::loadData()
 {
     // load data here
-	pacman* player = new pacman(this);
-	player -> setPosition(Vector2(100.0f, 384.0f));
-	std::cout << "added pacman" << std::endl;
+	mPlayer = new pacman(this);
+	mPlayer -> setPosition(Vector2(100.0f, 384.0f));
 }
 
 void game::unloadData()
@@ -95,7 +94,9 @@ void game::processInput()
 	}
 
     // Process player input here
-	
+	const uint8_t* state = SDL_GetKeyboardState(nullptr);
+
+    mPlayer->processKeyboard(state);
 }
 
 void game::updateGame()
@@ -113,6 +114,41 @@ void game::updateGame()
 	mTicksCount = SDL_GetTicks();
 
     // Update game objects here
+	updateActors(deltaTime);
+}
+
+void game::updateActors(float deltaTime)
+{
+	// Update all actors
+	mAreActorsUpdating = true;
+	for (auto actor : mActors)
+	{
+		actor->update(deltaTime);
+	}
+	mAreActorsUpdating = false;
+
+	// Move any pending actors to mActors
+	for (auto pending : mPendingActors)
+	{
+		mActors.emplace_back(pending);
+	}
+	mPendingActors.clear();
+
+	// Add any dead actors to a temp vector
+	std::vector<actor*> deadActors;
+	for (auto actor : mActors)
+	{
+		if (actor->getState() == actor::state::EDead)
+		{
+			deadActors.emplace_back(actor);
+		}
+	}
+
+	// Delete dead actors (which removes them from mActors)
+	for (auto actor : deadActors)
+	{
+		delete actor;
+	}
 }
 
 void game::shutdown()
